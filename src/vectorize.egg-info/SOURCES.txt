@@ -1,0 +1,17 @@
+pyproject.toml
+src/vectorize/__init__.py
+src/vectorize/cli.py
+src/vectorize/colors.py
+src/vectorize/pipeline.py
+src/vectorize/preprocessing.py
+src/vectorize/svg_processing.py
+src/vectorize.egg-info/PKG-INFO
+src/vectorize.egg-info/SOURCES.txt
+src/vectorize.egg-info/dependency_links.txt
+src/vectorize.egg-info/entry_points.txt
+src/vectorize.egg-info/requires.txt
+src/vectorize.egg-info/top_level.txt
+tests/test_cli.py
+tests/test_pipeline.py
+tests/test_preprocessing.py
+tests/test_svg_processing.py
