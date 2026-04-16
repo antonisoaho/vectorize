@@ -50,3 +50,15 @@ def test_replace_gradient_colors():
     # Should contain interpolated colors, not the original grays
     assert "#000080" in result or "#000080" in result.upper()
     assert "808080" not in result
+    # Brightest band (paper) is unpainted — no solid fill on near-white paths
+    assert 'fill="none"' in result
+
+
+def test_replace_gradient_skips_white_fill():
+    svg = """<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+  <path d="M0 0h10v10H0z" fill="#FEFEFE"/>
+</svg>"""
+    result = replace_gradient_colors(svg, "#000000", "#FF0000", 4)
+    assert 'fill="none"' in result
+    assert "#FF0000" not in result

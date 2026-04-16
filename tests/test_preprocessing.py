@@ -2,10 +2,14 @@ import pytest
 from PIL import Image
 
 from vectorize.preprocessing import (
+    apply_blur,
     convert_to_bw,
     convert_to_grayscale,
+    denoise_gray_for_gradient,
+    gradient_level_index,
     image_to_bytes,
     load_and_validate,
+    restore_image,
 )
 
 
@@ -57,3 +61,64 @@ def test_image_to_bytes():
     data = image_to_bytes(img)
     assert isinstance(data, bytes)
     assert data[:4] == b"\x89PNG"  # PNG magic bytes
+
+
+def test_apply_blur_zero_is_identity():
+    img = Image.new("L", (12, 12), 42)
+    out = apply_blur(img, 0.0)
+    assert list(out.getdata()) == list(img.getdata())
+
+
+def test_apply_blur_positive_softens():
+    img = Image.new("L", (30, 30), 0)
+    for x in range(15, 30):
+        for y in range(30):
+            img.putpixel((x, y), 255)
+    out = apply_blur(img, 2.0)
+    mid = [out.getpixel((x, 15)) for x in range(12, 18)]
+    assert any(v not in (0, 255) for v in mid)
+
+
+def test_restore_none_is_identity():
+    img = Image.new("L", (8, 8), 99)
+    out = restore_image(img, "none")
+    assert list(out.getdata()) == list(img.getdata())
+
+
+def test_restore_fills_small_hole():
+    img = Image.new("L", (32, 32), 0)
+    for x in range(14, 18):
+        for y in range(14, 18):
+            img.putpixel((x, y), 255)
+    out = restore_image(img, "medium")
+    assert out.getpixel((15, 15)) == 0
+
+
+def test_restore_removes_speckle():
+    img = Image.new("L", (20, 20), 0)
+    img.putpixel((10, 10), 255)
+    out = restore_image(img, "medium")
+    assert out.getpixel((10, 10)) == 0
+
+
+def test_restore_invalid_strength_raises():
+    img = Image.new("L", (4, 4), 0)
+    with pytest.raises(ValueError, match="restore strength"):
+        restore_image(img, "bogus")
+
+
+def test_gradient_level_index_four_levels():
+    assert gradient_level_index(0, 4) == 0
+    assert gradient_level_index(85, 4) == 1
+    assert gradient_level_index(170, 4) == 2
+    assert gradient_level_index(255, 4) == 3
+
+
+def test_denoise_gray_for_gradient_none_is_identity():
+    img = Image.new("L", (8, 8), 42)
+    assert list(denoise_gray_for_gradient(img, "none").getdata()) == list(img.getdata())
+
+
+def test_denoise_gray_for_gradient_invalid_raises():
+    with pytest.raises(ValueError, match="restore strength"):
+        denoise_gray_for_gradient(Image.new("L", (2, 2), 0), "invalid")

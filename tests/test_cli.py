@@ -56,3 +56,29 @@ def test_png_export(sample_bw_image, tmp_path):
     with open(png_output, "rb") as f:
         header = f.read(8)
     assert header[:4] == b"\x89PNG"
+
+
+def test_blur_and_restore_flags(sample_bw_image, tmp_path):
+    output = str(tmp_path / "out.svg")
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            sample_bw_image,
+            "-o",
+            output,
+            "-c",
+            "#000000",
+            "-I",
+            "--blur",
+            "2",
+            "--restore",
+            "light",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Applying blur" in result.output
+    assert "Restoring" in result.output
+    with open(output) as f:
+        svg = f.read()
+    assert "<svg" in svg or "<?xml" in svg

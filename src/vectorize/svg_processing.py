@@ -90,6 +90,9 @@ def replace_gradient_colors(
         brightness = _fill_brightness(fill)
         if brightness is None:
             continue
+        if brightness > 0.9:
+            _set_fill(path, "none")
+            continue
         new_color = interpolate_color(color_dark, color_light, brightness)
         _set_fill(path, new_color)
 

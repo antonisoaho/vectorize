@@ -12,12 +12,28 @@ def run(config: dict) -> None:
     click.echo(f"Loading {config['input_path']}...")
     img = preprocessing.load_and_validate(config["input_path"])
 
+    click.echo("Converting to grayscale...")
+    gray = img.convert("L")
+
+    blur = float(config.get("blur", 0.0) or 0.0)
+    if blur > 0:
+        click.echo(f"Applying blur (radius {blur})...")
+        gray = preprocessing.apply_blur(gray, blur)
+
+    restore = config.get("restore", "none")
+
     if config["mode"] == "single":
         click.echo("Converting to black & white...")
-        processed = preprocessing.convert_to_bw(img, config["threshold"])
+        processed = preprocessing.convert_to_bw(gray, config["threshold"])
+        if restore != "none":
+            click.echo(f"Restoring ({restore})...")
+            processed = preprocessing.restore_image(processed, restore)
     else:
+        if restore != "none":
+            click.echo(f"Restoring ({restore}) for gradient (median denoise on grayscale only)...")
+            gray = preprocessing.denoise_gray_for_gradient(gray, restore)
         click.echo(f"Converting to {config['levels']}-level grayscale...")
-        processed = preprocessing.convert_to_grayscale(img, config["levels"])
+        processed = preprocessing.convert_to_grayscale(gray, config["levels"])
 
     img_bytes = preprocessing.image_to_bytes(processed)
 
@@ -81,25 +97,31 @@ def _export_png(processed: Image.Image, config: dict, png_path: Path) -> None:
     pixels_gray = gray.load()
     pixels_out = rgba.load()
 
+    # Near-white stays transparent after restore / anti-aliasing
+    _bg_cutoff = 250
+
     if config["mode"] == "single":
         r, g, b = hex_to_rgb(config["color"])
         for y in range(h):
             for x in range(w):
                 v = pixels_gray[x, y]
-                if v < 255:
-                    alpha = 255 - v
-                    pixels_out[x, y] = (r, g, b, alpha)
+                if v >= _bg_cutoff:
+                    continue
+                alpha = 255 - v
+                pixels_out[x, y] = (r, g, b, alpha)
     else:
+        levels = config["levels"]
         color_dark = config["color_dark"]
         color_light = config["color_light"]
+        denom = max(1, levels - 1)
         for y in range(h):
             for x in range(w):
                 v = pixels_gray[x, y]
-                if v == 255:
+                k = preprocessing.gradient_level_index(v, levels)
+                if k >= levels - 1:
                     continue
-                t = v / 255.0
+                t = k / denom
                 cr, cg, cb = hex_to_rgb(interpolate_color(color_dark, color_light, t))
-                alpha = 255 - v
-                pixels_out[x, y] = (cr, cg, cb, alpha)
+                pixels_out[x, y] = (cr, cg, cb, 255)
 
     rgba.save(str(png_path), format="PNG")

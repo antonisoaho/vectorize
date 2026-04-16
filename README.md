@@ -6,11 +6,45 @@ Optionally exports a PNG with a transparent background alongside the SVG.
 
 ## Installation
 
-Requires Python 3.10+.
+You need **Python 3.10–3.13** (3.14 is excluded for now: the `vtracer` dependency ships native extensions that can crash on 3.14 until upstream publishes compatible wheels).
+
+### From a clone (development or local use)
+
+Using a virtual environment avoids touching system Python:
 
 ```bash
-pip install -e .
+git clone https://github.com/antonisoaho/vectorize.git
+cd vectorize
+
+python3.12 -m venv .venv          # use 3.10–3.13 if you do not have 3.12
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+pip install -U pip
+pip install -e .                   # CLI: vectorize
+# optional dev tools (pytest):
+pip install -e ".[dev]"
 ```
+
+Same flow with **[uv](https://github.com/astral-sh/uv)** (fast resolver/installer):
+
+```bash
+cd vectorize
+uv venv --python 3.12
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+### End users (global CLI, when you publish to PyPI)
+
+If this package is published on PyPI, `**pipx**` gives an isolated app and a `vectorize` command on `PATH` without managing a venv yourself:
+
+```bash
+pipx install vectorize
+# or from git before release:
+pipx install git+https://github.com/antonisoaho/vectorize.git
+```
+
+If `pip` or `pipx` refuses the install, check `python -V`: it must be **below 3.14**.
 
 ## Quick start
 
@@ -36,24 +70,32 @@ vectorize [OPTIONS] INPUT_IMAGE
 
 ### Arguments
 
+
 | Argument      | Description                              |
-|---------------|------------------------------------------|
+| ------------- | ---------------------------------------- |
 | `INPUT_IMAGE` | Path to the source image (PNG, JPG, etc) |
+
 
 ### Options
 
-| Option                          | Description                                         | Default     |
-|---------------------------------|-----------------------------------------------------|-------------|
-| `-o`, `--output PATH`           | Output SVG path                                     | `input.svg` |
-| `-c`, `--color TEXT`            | Single-color mode with hex color or name             | —           |
-| `-g`, `--gradient`              | Enable gradient/multi-tone mode                      | off         |
-| `--color-dark TEXT`             | Dark end of gradient                                 | `#000000`   |
-| `--color-light TEXT`            | Light end of gradient                                | `#FFFFFF`   |
-| `--levels INT`                  | Number of gradient tone levels (2–8)                 | `4`         |
-| `-t`, `--threshold INT`         | Black & white cutoff (0–255)                         | `128`       |
-| `-q`, `--quality INT`           | Speckle filter — 1 = max detail, 10 = cleanest       | `4`         |
-| `--png`                         | Also export a PNG with transparent background        | off         |
-| `-i` / `-I`                     | Force interactive mode on / off                       | auto        |
+
+| Option                  | Description                                                                                           | Default     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- | ----------- |
+| `-o`, `--output PATH`   | Output SVG path                                                                                       | `input.svg` |
+| `-c`, `--color TEXT`    | Single-color mode with hex color or name                                                              | —           |
+| `-g`, `--gradient`      | Enable gradient/multi-tone mode                                                                       | off         |
+| `--color-dark TEXT`     | Dark end of gradient                                                                                  | `#000000`   |
+| `--color-light TEXT`    | Light end of gradient                                                                                 | `#FFFFFF`   |
+| `--levels INT`          | Number of gradient tone levels (2–8)                                                                  | `4`         |
+| `-t`, `--threshold INT` | Black & white cutoff (0–255)                                                                          | `128`       |
+| `-q`, `--quality INT`   | Speckle filter — 1 = max detail, 10 = cleanest                                                        | `4`         |
+| `--blur FLOAT`          | Gaussian blur radius on grayscale before threshold/quantize (0–10); `0` = off                         | `0`         |
+| `--restore STR`         | Cleanup presets (see *Blur and restore*; single vs gradient differ)                                  | `none`*     |
+| `--png`                 | Also export a PNG with transparent background                                                         | off         |
+| `-i` / `-I`             | Force interactive mode on / off                                                                       | auto        |
+
+
+Defaults to `none` without prompting when using `-I`, `-c`, or `-g` alone. If you launch the full interactive wizard (`vectorize file.png` with no mode flags) or pass `-i`, omitting `--restore` triggers a prompt.
 
 ### Mode selection
 
@@ -75,6 +117,15 @@ Colors can be specified as:
 
 - **Threshold** (`-t`) controls the black/white cutoff when converting the image. Lower values keep more detail as black; higher values keep less. Only affects single-color mode.
 - **Quality** (`-q`) controls the speckle filter. Lower values preserve fine detail (noisier SVG), higher values produce cleaner shapes with fewer paths.
+
+### Blur and restore
+
+- **`--blur`** softens the grayscale image before thresholding (single-color) or quantization (gradient), which tends to produce smoother vector curves. `0` leaves edges sharp.
+- **`--restore`** (single-color): light median + repeated **closing** on the **binary** mask (fills paper-colored pinholes inside black ink). `heavy` adds more closing passes, not a huge blur kernel, so stamp lettering stays readable.
+- **`--restore`** (gradient): **median denoise on grayscale only**, applied **before** quantization. Morphological ops are not run on quantized bands (they would smear tone steps and break transparent backgrounds).
+- Defaults to `none` when omitted with `-I`, `-c`, or `-g` alone; the full interactive wizard or `-i` prompts for strength when omitted.
+
+**Gradient transparency:** the **lightest quantized band** is treated as the background in SVG (`fill="none"` on near-white paths) and in `--png` exports (fully transparent pixels). Mid-tones use your gradient at **full opacity** (no “alpha from gray” muddying).
 
 ## Examples
 
@@ -113,10 +164,16 @@ vectorize input.png -I
 # Uses defaults: single color, black, no PNG
 ```
 
+**Restoring damaged logos:**
+
+```bash
+vectorize scuffed-logo.png -c black --restore heavy --blur 1.0
+```
+
 ## How it works
 
 1. **Load** — reads the raster image and validates the format
-2. **Preprocess** — converts to grayscale, then applies thresholding (single-color) or quantization (gradient)
+2. **Preprocess** — converts to grayscale, optionally **blur**; optional **restore** (single: on the binary mask after threshold; gradient: median denoise on grayscale before quantization); then threshold or quantize
 3. **Trace** — runs [vtracer](https://github.com/visioncortex/vtracer) to convert pixel data into vector paths
 4. **Recolor** — replaces path fill colors in the SVG with your chosen color(s)
 5. **Export** — writes the SVG (and optionally a transparent PNG)
@@ -137,7 +194,7 @@ pytest tests/ -v
 src/vectorize/
   cli.py              # Click CLI entry point and interactive prompts
   pipeline.py         # Orchestrates the full conversion pipeline
-  preprocessing.py    # Image loading, validation, B&W conversion
+  preprocessing.py    # Image loading, blur, restore, B&W conversion
   svg_processing.py   # SVG parsing and color replacement
   colors.py           # Hex validation, presets, color interpolation
 ```

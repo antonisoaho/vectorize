@@ -16,13 +16,27 @@ from .pipeline import run
 @click.option("--levels", type=click.IntRange(2, 8), default=None, help="Number of gradient tone levels (2-8)")
 @click.option("--threshold", "-t", type=click.IntRange(0, 255), default=128, help="B&W threshold (0-255)")
 @click.option("--quality", "-q", type=click.IntRange(1, 10), default=4, help="Speckle filter (1=max detail, 10=clean)")
-@click.option("--png", is_flag=True, default=False, help="Also export as PNG with transparent background")
+@click.option(
+    "--blur",
+    type=click.FloatRange(0.0, 10.0),
+    default=0.0,
+    help="Gaussian blur radius (pre-trace, on grayscale). 0 = off.",
+)
+@click.option(
+    "--restore",
+    "restore_opt",
+    type=click.Choice(["none", "light", "medium", "heavy"], case_sensitive=False),
+    default=None,
+    help="Clean up scraped/damaged shapes after threshold/quantize (omit in interactive mode to be prompted).",
+)
+@click.option("--png", is_flag=True, default=False, help="Also export a PNG with transparent background")
 @click.option("--interactive/--no-interactive", "-i/-I", default=None, help="Force interactive mode on/off")
-def main(input_image, output, color, gradient, color_dark, color_light, levels, threshold, quality, png, interactive):
+def main(input_image, output, color, gradient, color_dark, color_light, levels, threshold, quality, blur, restore_opt, png, interactive):
     """Convert a raster image (PNG, JPG, etc.) to SVG."""
     if output is None:
         output = str(Path(input_image).with_suffix(".svg"))
 
+    entered_mode_prompt = False
     # Determine mode
     if gradient:
         mode = "gradient"
@@ -34,6 +48,7 @@ def main(input_image, output, color, gradient, color_dark, color_light, levels, 
         color = "#000000"
     else:
         # Interactive mode
+        entered_mode_prompt = True
         mode = click.prompt(
             "Vectorization mode",
             type=click.Choice(["single", "gradient"], case_sensitive=False),
@@ -65,6 +80,20 @@ def main(input_image, output, color, gradient, color_dark, color_light, levels, 
         else:
             color_light = validate_hex_color(color_light)
 
+    if restore_opt is None:
+        if interactive is False:
+            restore = "none"
+        elif interactive is True or entered_mode_prompt:
+            restore = click.prompt(
+                "Restore strength",
+                type=click.Choice(["none", "light", "medium", "heavy"], case_sensitive=False),
+                default="none",
+            )
+        else:
+            restore = "none"
+    else:
+        restore = restore_opt
+
     # Build config
     config = {
         "input_path": input_image,
@@ -72,6 +101,8 @@ def main(input_image, output, color, gradient, color_dark, color_light, levels, 
         "mode": mode,
         "threshold": threshold,
         "quality": quality,
+        "blur": blur,
+        "restore": restore,
         "png": png,
     }
 

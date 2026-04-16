@@ -6,7 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "vectorize"
 version = "0.1.0"
 description = "CLI tool to convert raster images to SVG"
-requires-python = ">=3.10"
+# vtracer's binary wheels are not reliable on CPython 3.14 yet (segfault at import/call time).
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "vtracer>=0.6.10",
     "Pillow>=10.0",
