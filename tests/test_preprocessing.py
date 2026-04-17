@@ -4,9 +4,6 @@ from PIL import Image
 from vectorize.preprocessing import (
     apply_blur,
     convert_to_bw,
-    convert_to_grayscale,
-    denoise_gray_for_gradient,
-    gradient_level_index,
     image_to_bytes,
     load_and_validate,
     restore_image,
@@ -45,15 +42,6 @@ def test_convert_to_bw_threshold():
     bw = convert_to_bw(img, threshold=128)
     pixels = list(bw.getdata())
     assert all(p == 255 for p in pixels)  # 200 > 128 → all white
-
-
-def test_convert_to_grayscale_levels():
-    img = Image.new("RGB", (10, 10), (128, 128, 128))
-    gray = convert_to_grayscale(img, levels=4)
-    assert gray.mode == "L"
-    unique = set(gray.getdata())
-    assert len(unique) >= 1
-    assert len(unique) <= 4
 
 
 def test_image_to_bytes():
@@ -105,20 +93,3 @@ def test_restore_invalid_strength_raises():
     img = Image.new("L", (4, 4), 0)
     with pytest.raises(ValueError, match="restore strength"):
         restore_image(img, "bogus")
-
-
-def test_gradient_level_index_four_levels():
-    assert gradient_level_index(0, 4) == 0
-    assert gradient_level_index(85, 4) == 1
-    assert gradient_level_index(170, 4) == 2
-    assert gradient_level_index(255, 4) == 3
-
-
-def test_denoise_gray_for_gradient_none_is_identity():
-    img = Image.new("L", (8, 8), 42)
-    assert list(denoise_gray_for_gradient(img, "none").getdata()) == list(img.getdata())
-
-
-def test_denoise_gray_for_gradient_invalid_raises():
-    with pytest.raises(ValueError, match="restore strength"):
-        denoise_gray_for_gradient(Image.new("L", (2, 2), 0), "invalid")

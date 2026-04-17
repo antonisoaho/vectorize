@@ -40,16 +40,3 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 
 def rgb_to_hex(r: int, g: int, b: int) -> str:
     return f"#{r:02X}{g:02X}{b:02X}"
-
-
-def interpolate_color(color1: str, color2: str, t: float) -> str:
-    r1, g1, b1 = hex_to_rgb(color1)
-    r2, g2, b2 = hex_to_rgb(color2)
-    r = int(r1 + (r2 - r1) * t)
-    g = int(g1 + (g2 - g1) * t)
-    b = int(b1 + (b2 - b1) * t)
-    return rgb_to_hex(
-        max(0, min(255, r)),
-        max(0, min(255, g)),
-        max(0, min(255, b)),
-    )

@@ -14,17 +14,6 @@ def sample_bw_image(tmp_path):
 
 
 @pytest.fixture
-def sample_color_image(tmp_path):
-    img = Image.new("RGB", (50, 50), (200, 200, 200))
-    for x in range(0, 25):
-        for y in range(0, 50):
-            img.putpixel((x, y), (50, 50, 50))
-    path = tmp_path / "sample_color.png"
-    img.save(path)
-    return str(path)
-
-
-@pytest.fixture
 def sample_jpg_image(tmp_path):
     img = Image.new("RGB", (50, 50), (100, 100, 100))
     path = tmp_path / "sample.jpg"

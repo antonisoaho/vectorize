@@ -52,42 +52,6 @@ def _kernel_size(radius: int) -> int:
     return 2 * radius + 1
 
 
-def gradient_tone_step(levels: int) -> float:
-    """Luminance step between quantized bands (``convert_to_grayscale``)."""
-    if levels <= 1:
-        return 255.0
-    return 255.0 / (levels - 1)
-
-
-def gradient_level_index(v: int, levels: int) -> int:
-    """Map a gray value to the nearest quantization band index ``0 .. levels-1``."""
-    if levels <= 1:
-        return 0
-    step = gradient_tone_step(levels)
-    k = int(round(v / step))
-    return max(0, min(levels - 1, k))
-
-
-def denoise_gray_for_gradient(img: Image.Image, strength: str) -> Image.Image:
-    """Median-only denoise before quantization (gradient mode).
-
-    Morphological ops are skipped so band boundaries stay clean; strength maps
-    to median kernel size from the same preset names as ``restore_image``.
-    """
-    if strength not in RESTORE_PRESETS:
-        raise ValueError(
-            f"restore strength must be one of {sorted(RESTORE_PRESETS)}, got {strength!r}"
-        )
-    if strength == "none":
-        return img
-
-    median_sz, _, _, _ = RESTORE_PRESETS[strength]
-    out = img if img.mode == "L" else img.convert("L")
-    if median_sz > 0:
-        out = out.filter(ImageFilter.MedianFilter(size=median_sz))
-    return out
-
-
 def restore_image(img: Image.Image, strength: str) -> Image.Image:
     """Solidify black ink on a binary mask (0 = ink, 255 = paper).
 
@@ -127,13 +91,6 @@ def restore_image(img: Image.Image, strength: str) -> Image.Image:
 def convert_to_bw(img: Image.Image, threshold: int = 128) -> Image.Image:
     gray = img.convert("L")
     return gray.point(lambda x: 255 if x > threshold else 0, mode="L")
-
-
-def convert_to_grayscale(img: Image.Image, levels: int = 4) -> Image.Image:
-    gray = img.convert("L")
-    step = 256 / levels
-    max_val = 255 / (levels - 1) if levels > 1 else 0
-    return gray.point(lambda x: int(min(x / step, levels - 1)) * int(max_val))
 
 
 def image_to_bytes(img: Image.Image, fmt: str = "PNG") -> bytes:

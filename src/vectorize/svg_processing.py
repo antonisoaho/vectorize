@@ -2,8 +2,6 @@ import re
 
 from lxml import etree
 
-from .colors import hex_to_rgb, interpolate_color
-
 SVG_NS = "http://www.w3.org/2000/svg"
 NAMESPACES = {"svg": SVG_NS}
 
@@ -74,26 +72,5 @@ def replace_single_color(svg_str: str, target_color: str) -> str:
         if brightness is not None and brightness > 0.9:
             continue
         _set_fill(path, target_color)
-
-    return _serialize(root)
-
-
-def replace_gradient_colors(
-    svg_str: str, color_dark: str, color_light: str, levels: int
-) -> str:
-    root = etree.fromstring(svg_str.encode("utf-8"))
-
-    for path in _find_paths(root):
-        fill = _get_fill(path)
-        if fill is None:
-            continue
-        brightness = _fill_brightness(fill)
-        if brightness is None:
-            continue
-        if brightness > 0.9:
-            _set_fill(path, "none")
-            continue
-        new_color = interpolate_color(color_dark, color_light, brightness)
-        _set_fill(path, new_color)
 
     return _serialize(root)

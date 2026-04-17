@@ -20,19 +20,6 @@ def test_single_color_mode(sample_bw_image, tmp_path):
     assert "<svg" in svg or "<?xml" in svg
 
 
-def test_gradient_mode(sample_color_image, tmp_path):
-    output = str(tmp_path / "out.svg")
-    runner = CliRunner()
-    result = runner.invoke(
-        main,
-        [sample_color_image, "-o", output, "-g", "--levels", "3", "-I"],
-    )
-    assert result.exit_code == 0, result.output
-    with open(output) as f:
-        svg = f.read()
-    assert "<svg" in svg or "<?xml" in svg
-
-
 def test_default_output_path(sample_bw_image):
     runner = CliRunner()
     result = runner.invoke(main, [sample_bw_image, "-c", "#000000", "-I"])
